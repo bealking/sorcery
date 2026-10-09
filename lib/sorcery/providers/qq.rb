@@ -6,7 +6,8 @@ module Sorcery
       include Protocols::Oauth2
 
       attr_reader   :parse
-      attr_accessor :auth_url, :scope, :token_url, :user_info_path, :openid_path
+      attr_accessor :auth_url, :scope, :token_url, :user_info_path, :openid_path,
+                    :open_timeout, :read_timeout
 
       def initialize
         super
@@ -18,6 +19,9 @@ module Sorcery
         @token_url = 'https://graph.qq.com/oauth2.0/token'
         @parse = :query
         @state = SecureRandom.hex(16)
+        # Net::HTTP defaults to 60s, which ties up an app server thread when graph.qq.com is unreachable
+        @open_timeout = 5
+        @read_timeout = 10
       end
 
       def authorize_url(options = {})
@@ -51,7 +55,9 @@ module Sorcery
       end
 
       def get_access_token(args, options = {})
-        client = build_client(options)
+        client = build_client(
+          options.merge(connection_opts: { request: { open_timeout: open_timeout, read_timeout: read_timeout } })
+        )
 
         client.auth_code.get_token(
           args[:code],
